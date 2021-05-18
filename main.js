@@ -55,11 +55,14 @@ class Collection {
     static collections = {};
 
     constructor (collectionName = 'values', array = [], key = 'id') {
-        this._primaryKey = key;
-        this._name = collectionName;
-        this.array = array;
+        if (Collection.collections[collectionName]) {
+            return Collection.collections[collectionName];
+        }
+        Collection.collections[collectionName] = this;
 
-        Collection.collections[this._name] = this;
+        this._name = collectionName;
+        this._primaryKey = key;
+        this.array = array;
 
         this[`removeBy${this._primaryKey}`] = this.removeByKey;
     }
@@ -104,10 +107,11 @@ class Collection {
 
     remove (callback) {
         const data = {};
-
+        let iterator = 0;
         for (const key in this[this._name]) {
             const item = this[this._name][key];
-            if (!callback(item, key)) data[key] = item;
+            if (!callback(item, key, iterator)) data[key] = item;
+            iterator++;
         }
 
         this[this._name] = data;
@@ -127,33 +131,63 @@ class Collection {
         }
     }
 
-    find (callback) {
+    get (key) {
+        return this[this._name][key];
+    }
+
+    forEach (callback) {
+        let iterator = 0;
         for (const key in this[this._name]) {
             const item = this[this._name][key];
-            if (callback(item, key)) return item;
+            callback(item, key, iterator)
+            iterator++;
         }
+        return this;
+    }
+
+    find (callback) {
+        let iterator = 0;
+        for (const key in this[this._name]) {
+            const item = this[this._name][key];
+            if (callback(item, key, iterator)) return item;
+            iterator++;
+        }
+
+        return undefined;
     }
 
     filter (callback) {
         const data = {};
+        let iterator = 0;
+
         for (const key in this[this._name]) {
             const item = this[this._name][key];
-            if (callback(item, key)) data[key] = item;
+            if (callback(item, key, iterator)) data[key] = item;
+            iterator++;
         }
+
         return data;
     }
 
     count (callback) {
         let countItem = 0;
+        let iterator = 0;
+
         for (const key in this[this._name]) {
             const item = this[this._name][key];
-            if (callback(item, key)) countItem++;
+            if (callback(item, key, iterator)) countItem++;
+            iterator++;
         }
+
         return countItem;
     }
 }
 
 const usersCollection = new Collection('users', users, 'id');
+usersCollection.add({id: 1, name: 'dsa'});
+
+usersCollection.forEach((item, key, iterator) => console.log(item));
+
 
 
 // console.log(usersCollection);
@@ -161,8 +195,8 @@ const usersCollection = new Collection('users', users, 'id');
 // console.log(usersCollection);
 // usersCollection.type = 'ass';
 // console.log(usersCollection);
-usersCollection.array = [{ id: 'as', name: 'aa'}];
+// usersCollection.array = [{ id: 'as', name: 'aa'}];
 // console.log(usersCollection);
-console.log(Collection.collections.users);
+// console.log(Collection.collections.users);
 
 // Object.keys()
