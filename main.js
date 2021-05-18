@@ -38,12 +38,28 @@ const users = [
     }
 ];
 
+class CollectionItem {
+    constructor (item, parent) {
+        this.__proto__._parent = parent;
+        Object.keys(item).forEach((key) => {
+            this[key] = item[key];
+        });
+    }
 
+    get parent () {
+        return this.__proto__._parent;
+    }
+
+    remove() {
+        this.parent.removeByKey(this[this.parent.primaryKey]);
+        return this.parent;
+    }
+}
 
 class Collection {
-    static map (array, key = 'id') {
+    static map (array, key = 'id', parent) {
         return array.reduce((accumulator, item) => {
-            accumulator[item[key]] = item;
+            accumulator[item[key]] = new CollectionItem(item, parent || this);
             return accumulator;
         }, {});
     }
@@ -63,8 +79,6 @@ class Collection {
         this._name = collectionName;
         this._primaryKey = key;
         this.array = array;
-
-        this[`removeBy${this._primaryKey}`] = this.removeByKey;
     }
 
     get type () {
@@ -84,7 +98,7 @@ class Collection {
     }
 
     set array (value) {
-        return this[this._name] = Collection.map(value, this._primaryKey);
+        return this[this._name] = Collection.map(value, this.primaryKey, this);
     }
 
     get keys () {
@@ -101,20 +115,6 @@ class Collection {
 
     removeByKey (key) {
         delete this[this._name][key];
-
-        return this;
-    }
-
-    remove (callback) {
-        const data = {};
-        let iterator = 0;
-        for (const key in this[this._name]) {
-            const item = this[this._name][key];
-            if (!callback(item, key, iterator)) data[key] = item;
-            iterator++;
-        }
-
-        this[this._name] = data;
 
         return this;
     }
@@ -136,58 +136,70 @@ class Collection {
     }
 
     forEach (callback) {
-        let iterator = 0;
+        let isStop = false;
+        const stop = (cb = () => true) => isStop = cb();
         for (const key in this[this._name]) {
             const item = this[this._name][key];
-            callback(item, key, iterator)
-            iterator++;
+            callback(item, key, stop);
+            if (isStop) break;
         }
         return this;
     }
 
-    find (callback) {
-        let iterator = 0;
-        for (const key in this[this._name]) {
-            const item = this[this._name][key];
-            if (callback(item, key, iterator)) return item;
-            iterator++;
-        }
+    remove (callback) {
+        const data = {};
 
-        return undefined;
+        this.forEach((item, key, stop) => {
+            if (!callback(item, key, stop)) {
+                data[key] = item;
+                stop();
+            }
+        });
+
+        this[this._name] = data;
+
+        return this;
+    }
+
+    find (callback) {
+        let found;
+
+        this.forEach((item, key, stop) => {
+            if (callback(item, key, stop)) {
+                found = item;
+                stop();
+            }
+        });
+
+        return found;
     }
 
     filter (callback) {
         const data = {};
-        let iterator = 0;
-
-        for (const key in this[this._name]) {
-            const item = this[this._name][key];
-            if (callback(item, key, iterator)) data[key] = item;
-            iterator++;
-        }
+        
+        this.forEach((item, key, stop) => {
+            if (callback(item, key, stop)) data[key] = item;
+        });
 
         return data;
     }
 
     count (callback) {
         let countItem = 0;
-        let iterator = 0;
-
-        for (const key in this[this._name]) {
-            const item = this[this._name][key];
-            if (callback(item, key, iterator)) countItem++;
-            iterator++;
-        }
+        
+        this.forEach((item, key, stop) => {
+            if (callback(item, key, stop)) countItem++;
+        });
 
         return countItem;
     }
 }
 
-const usersCollection = new Collection('users', users, 'id');
-usersCollection.add({id: 1, name: 'dsa'});
+new Collection('users', users, 'id');
+Collection.collections.users.add({id: 'aa', remove: 'dsa'});
 
-usersCollection.forEach((item, key, iterator) => console.log(item));
 
+console.log(Collection.collections.users.values.asd.remove().values.aa.remove());
 
 
 // console.log(usersCollection);
